@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 XSsniper - Reflected XSS Scanner for Kali Linux
-Version: 0.1
+Version: 0.2
 Legal use only
 """
 
@@ -161,10 +161,23 @@ BANNER = f"""
 ╔════════════════════════════════════════════╗
 ║             XSSNIPER v0.1                  ║
 ║   reflected XSS scanner (GET parameters)   ║
-║   {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}                      ║
+║   {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}                  ║
 ╚════════════════════════════════════════════╝
 """
 
+# interesting http codes
+INTERESTING_CODES = {500, 501, 502, 503, 403, 406, 429}
+
+# ANSI color codes (for --color option)
+COLORS = {
+    'green': '\033[92m',
+    'red': '\033[91m',
+    'yellow': '\033[93m',
+    'blue': '\033[94m',
+    'magenta': '\033[95m',
+    'cyan': '\033[96m',
+    'reset': '\033[0m'
+}
 def is_likely_reflected(payload: str, response_text: str) -> bool:
     """Simple heuristic: the payload is in the response and there is no explicit HTML escaping"""
     if not payload:
@@ -208,13 +221,20 @@ def load_payloads_from_file(filepath: str) -> list:
         sys.exit(1)
  
 
-def sniper(url_template: str, payloads: list):
+def sniper(url_template: str, payloads: list, use_color: bool = False):
+    def colorize(text, color_name):
+        if use_color and color_name in COLORS:
+            return f"{COLORS[color_name]}{text}{COLORS['reset']}"
+        return text
+    
+   
     print(BANNER)
     print(f"[+] Target: {url_template}")
     print(f"[+] Payloads in database: {len(payloads)}\n")
     
-    found = 0
-    
+    found = 0       # counter for potential XSS findings
+    successful = [] # list to store successful payloads for later review
+
     for idx, payload in enumerate(payloads, 1):
         encoded = quote(payload, safe="=&/")
         test_url = url_template.replace("FUZZ", encoded) if "FUZZ" in url_template else url_template + encoded
@@ -222,30 +242,48 @@ def sniper(url_template: str, payloads: list):
         print(f"[{idx:02d}/{len(payloads)}] → {payload[:55]}{'...' if len(payload)>55 else ''}", end=" ", flush=True)
 
 
-    try:
-        r = requests.get(test_url, headers=HEADERS, timeout=TIMEOUT, allow_redirects=True)
+        try:
+            r = requests.get(test_url, headers=HEADERS, timeout=TIMEOUT, allow_redirects=True)
             
-        if is_likely_reflected(payload, r.text):
-                print("  →  [XSS!] ")
+            if is_likely_reflected(payload, r.text):
+                print(colorize("  → ✅ [XSS!] ", "green"))                    # potential XSS found (payload reflected without obvious escaping)
                 print(f"      URL: {test_url}")
-                print(f"      Code: {r.status_code}  |  Length: {len(r.text):,} bytes")
+                print(f"      Code: {colorize(str(r.status_code), 'green')} | Length: {len(r.text):,} bytes")
                 print(f"      Payload: {payload}\n")
                 found += 1
-        else:
-                print(f"  →  {r.status_code}")
+                successful.append({
+                    'idx': idx,
+                    'payload': payload,
+                    'url': test_url,
+                    'code': r.status_code,
+                    'length': len(r.text)
+                })
+            elif r.status_code in INTERESTING_CODES:
+                print(colorize(f"🛡️ {r.status_code} (interesting)", "magenta"))
+            else:
+                print(colorize(f"  → ❌ {r.status_code}", "red"))           # not found or not reflected
                 
-    except requests.exceptions.RequestException as e:
-            print(f"  →  Error: {str(e)[:60]}")
+        except requests.exceptions.Timeout:
+            print(colorize("  → ⏰ Timeout", "blue"))                            # timeout 
+        except requests.exceptions.ConnectionError:
+            print(colorize("  → 🔌 Connection error", "cyan"))                   # connection error
+        except requests.exceptions.RequestException as e:
+            print(colorize(f"  → ⚠️ Error: {str(e)[:60]}", "yellow"))       # other request exceptions (truncated for readability)
         
-            time.sleep(DELAY)
+        time.sleep(DELAY)
     
-    print("\n" + "═" * 50)
+    print("\n" + "═" * 60)
     if found > 0:
-        print(f"[!] Found potential XSS: {found}")
+        print(colorize(f"[!] Found potential XSS: {found}", "green"))
+        print("\n📋 LIST OF SUCCESSFUL PAYLOADS:")
+        for item in successful:
+            print(f"  [{item['idx']:02d}] {item['payload'][:70]}")
+            print(f"      URL: {item['url']}")
+            print(f"      Code: {colorize(str(item['code']), 'yellow')} | Length: {item['length']:,} bytes\n")
         print("    Check MANUALLY in browser (many WAF/filters may block some payloads)")
     else:
-        print("[-] Nothing suspicious detected with current payload set")
-    print("═" * 50)
+        print(colorize("[-] Nothing suspicious detected with current payload set", "red"))
+    print("═" * 60)
 
 
 def main():
@@ -253,7 +291,7 @@ def main():
         description="XSSNIPER — fast reflected XSS tester",
         epilog="Examples:\n"
                "  python3 xssniper.py -u 'http://site.com/search?q=FUZZ'\n"
-               "  python3 xssniper.py -u 'http://vuln.site/page?search='"
+               "    python3 xssniper.py -u 'http://vuln.site/page?search=' -f payloads.txt --append --color\n"
     )
     
     parser.add_argument("-u", "--url", required=True,
@@ -262,6 +300,8 @@ def main():
                         help="File with custom payloads (one per line)")
     parser.add_argument("--append", action="store_true",
                         help="Append payloads from file to built-in list (default: replace)")
+    parser.add_argument("--color", action="store_true",
+                        help="Enable colored output (ANSI colors)")
     
     args = parser.parse_args()
     
@@ -275,6 +315,7 @@ def main():
 
     payloads_to_use = PAYLOADS
     source_desc = "built-in payloads"
+    use_color = args.color
     
     if args.payloads_file:
         file_payloads = load_payloads_from_file(args.payloads_file)
@@ -289,7 +330,7 @@ def main():
 
 
     try:
-        sniper(url, payloads_to_use)
+        sniper(url, payloads_to_use, use_color)
     except KeyboardInterrupt:
         print("\n[!] Scan interrupted by user")
         sys.exit(0)
