@@ -159,7 +159,7 @@ HEADERS = {"User-Agent": USER_AGENT}
 
 BANNER = f"""
 ╔════════════════════════════════════════════╗
-║             XSSNIPER v0.1                  ║
+║             XSSNIPER v0.2                  ║
 ║   reflected XSS scanner (GET parameters)   ║
 ║   {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}                      ║
 ╚════════════════════════════════════════════╝
