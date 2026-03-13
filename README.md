@@ -22,7 +22,6 @@ A simple and lightweight **reflected XSS scanner** (currently GET parameters onl
 git clone https://github.com/saybe-g/XSSniper.git
 cd xssniper
 pip install -r requirements.txt
-chmod +x xssniper.py
 ```
 
 Usage
