@@ -1,0 +1,13 @@
+XSSNIPER — fast reflected XSS tester
+
+options:
+  -h, --help            show this help message and exit
+  -u, --url URL         URL with injection point. Use FUZZ or just append at the end
+  -f, --payloads-file PAYLOADS_FILE
+                        File with custom payloads (one per line)
+  --append              Append payloads from file to built-in list (default: replace)
+  --color               Enable colored output (ANSI colors)
+  -d, --delay DELAY     Delay between requests in seconds (default: 0.6)
+
+  Don't use this flag if you're outputting the contents to a file. The output may look bad.
+  
