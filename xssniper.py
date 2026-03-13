@@ -161,7 +161,7 @@ BANNER = f"""
 ╔════════════════════════════════════════════╗
 ║             XSSNIPER v0.1                  ║
 ║   reflected XSS scanner (GET parameters)   ║
-║   {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}                  ║
+║   {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}                      ║
 ╚════════════════════════════════════════════╝
 """
 
