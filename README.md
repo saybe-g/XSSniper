@@ -16,6 +16,22 @@ A simple and lightweight **reflected XSS scanner** (currently GET parameters onl
 - Clean and colored terminal output
 - Support for `FUZZ` keyword in URL to specify exact injection point
 
+
+### Reactions
+→ ✅ [XSS!] -- # potential XSS found (payload reflected without obvious escaping) -- green
+
+🛡️ (interesting) -- interesting code error -- magenta
+
+→ ❌   --   # not found or not reflected -- red
+
+→ ⏰ Timeout -- # timeout -- blue 
+
+→ 🔌 Connection error - # connection error -- cyan 
+
+→ ⚠️ Error -- # other request exceptions (truncated for readability) -- yellow
+ 
+! Don't use this flag(--color) if you're outputting the contents to a file. The output may look bad.
+
 ### Installation
 
 ```
@@ -25,13 +41,13 @@ pip install -r requirements.txt
 ```
 
 Usage
-``` Option 1 – using FUZZ placeholder (recommended)
+``` using FUZZ placeholder
 python xssniper.py -u "https://example.com/search?q=FUZZ
 ```
-``` Option 2 – payload appended to the end of the URL
-python xssniper.py -u "https://vuln.site/page?search="
+Example
 ```
-
+python xssniper.py -u "https://example.com/search?q=FUZZ -f 'payload.txt' --append --color
+```
 ### IMPORTANT LEGAL NOTICE
 XSSNIPER is intended strictly for ethical and legal use only:
 
