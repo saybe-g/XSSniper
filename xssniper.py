@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-XSsniper - Reflected XSS Scanner for Kali Linux
+XSsniper - Reflected XSS Scanner
 Version: 0.2
 Legal use only
 """
@@ -221,7 +221,7 @@ def load_payloads_from_file(filepath: str) -> list:
         sys.exit(1)
  
 
-def sniper(url_template: str, payloads: list, use_color: bool = False):
+def sniper(url_template: str, payloads: list, use_color: bool = False, delay: float = 0.6):
     def colorize(text, color_name):
         if use_color and color_name in COLORS:
             return f"{COLORS[color_name]}{text}{COLORS['reset']}"
@@ -270,7 +270,7 @@ def sniper(url_template: str, payloads: list, use_color: bool = False):
         except requests.exceptions.RequestException as e:
             print(colorize(f"  → ⚠️ Error: {str(e)[:60]}", "yellow"))       # other request exceptions (truncated for readability)
         
-        time.sleep(DELAY)
+        time.sleep(delay) # delay between requests
     
     print("\n" + "═" * 60)
     if found > 0:
@@ -290,8 +290,8 @@ def main():
     parser = argparse.ArgumentParser(
         description="XSSNIPER — fast reflected XSS tester",
         epilog="Examples:\n"
-               "  python3 xssniper.py -u 'http://site.com/search?q=FUZZ'\n"
-               "    python3 xssniper.py -u 'http://vuln.site/page?search=' -f payloads.txt --append --color\n"
+               "  python3 xssniper.py -u 'http://site.com/search?q=FUZZ',\n"
+               "    python3 xssniper.py -u 'http://vuln.site/page?search=FUZZ' -f payloads.txt --append --color,\n"
     )
     
     parser.add_argument("-u", "--url", required=True,
@@ -302,6 +302,8 @@ def main():
                         help="Append payloads from file to built-in list (default: replace)")
     parser.add_argument("--color", action="store_true",
                         help="Enable colored output (ANSI colors)")
+    parser.add_argument("-d", "--delay", type=float, default=0.6,
+                        help="Delay between requests in seconds (default: 0.6)")
     
     args = parser.parse_args()
     
@@ -316,7 +318,14 @@ def main():
     payloads_to_use = PAYLOADS
     source_desc = "built-in payloads"
     use_color = args.color
-    
+    custom_delay = args.delay
+
+    if args.delay <= 0:
+        print("[!] Delay must be positive. Using default 0.6.")
+        custom_delay = 0.6
+    else:
+        custom_delay = args.delay
+
     if args.payloads_file:
         file_payloads = load_payloads_from_file(args.payloads_file)
         if args.append:
@@ -330,7 +339,7 @@ def main():
 
 
     try:
-        sniper(url, payloads_to_use, use_color)
+        sniper(url, payloads_to_use, use_color, custom_delay)
     except KeyboardInterrupt:
         print("\n[!] Scan interrupted by user")
         sys.exit(0)
