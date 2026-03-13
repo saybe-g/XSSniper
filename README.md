@@ -27,10 +27,10 @@ chmod +x xssniper.py
 
 Usage
 ``` Option 1 – using FUZZ placeholder (recommended)
-./xssniper.py -u "https://example.com/search?q=FUZZ"
+python xssniper.py -u "https://example.com/search?q=FUZZ"
 ```
 ``` Option 2 – payload appended to the end of the URL
-./xssniper.py -u "https://vuln.site/page?search="
+python xssniper.py -u "https://vuln.site/page?search="
 ```
 
 ### IMPORTANT LEGAL NOTICE
