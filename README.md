@@ -1,7 +1,7 @@
 # XSSniper
 Simple reflected XSS scanner for ethical testing and bug bounty hunting
 ------------------------------------------------------------------------------
-# XSSNIPER
+# XSSniper
 
 A simple and lightweight **reflected XSS scanner** (currently GET parameters only) designed for educational purposes and **legal security testing**.
 
@@ -19,7 +19,7 @@ A simple and lightweight **reflected XSS scanner** (currently GET parameters onl
 ### Installation
 
 ```
-git clone https://github.com/saybe-g/xssniper.git
+git clone https://github.com/saybe-g/XSSniper.git
 cd xssniper
 pip install -r requirements.txt
 chmod +x xssniper.py
