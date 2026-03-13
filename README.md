@@ -26,7 +26,7 @@ pip install -r requirements.txt
 
 Usage
 ``` Option 1 – using FUZZ placeholder (recommended)
-python xssniper.py -u "https://example.com/search?q=FUZZ"
+python xssniper.py -u "https://example.com/search?q=FUZZ
 ```
 ``` Option 2 – payload appended to the end of the URL
 python xssniper.py -u "https://vuln.site/page?search="
