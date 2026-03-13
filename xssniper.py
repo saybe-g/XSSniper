@@ -271,13 +271,8 @@ def main():
         print("[!] It is recommended to specify FUZZ or at least an = sign at the end of the parameter")
         print("    Example: http://example.com/search.php?test=FUZZ")
         sys.exit(1)
-    
-    try:
-        sniper(url, payloads_to_use)
-    except KeyboardInterrupt:
-        print("\n[!] Scan interrupted by user")
-        sys.exit(0)
-   
+
+
     payloads_to_use = PAYLOADS
     source_desc = "built-in payloads"
     
@@ -291,6 +286,14 @@ def main():
             source_desc = f"only from file ({len(file_payloads)})"
     
     print(f"[+] Using: {source_desc}")
+
+
+    try:
+        sniper(url, payloads_to_use)
+    except KeyboardInterrupt:
+        print("\n[!] Scan interrupted by user")
+        sys.exit(0)
+   
 
 if __name__ == "__main__":
     main()
