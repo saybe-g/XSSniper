@@ -2,14 +2,14 @@
 # -*- coding: utf-8 -*-
 """
 XSsniper - Reflected XSS Scanner
-Version: 0.2
+Version: 0.3
 Legal use only
 """
 
-import requests
+import httpx
+import asyncio
 import argparse
-from urllib.parse import quote, urlparse, parse_qs, urlencode
-import time
+from urllib.parse import quote
 import sys
 from datetime import datetime
 
@@ -154,12 +154,11 @@ PAYLOADS = [
 DELAY = 0.6                 # seconds between requests
 TIMEOUT = 12                # request timeout
 USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"
-
 HEADERS = {"User-Agent": USER_AGENT}
 
 BANNER = f"""
 ╔════════════════════════════════════════════╗
-║             XSSNIPER v0.2                  ║
+║             XSSNIPER v0.3                  ║
 ║   reflected XSS scanner (GET parameters)   ║
 ║   {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}                      ║
 ╚════════════════════════════════════════════╝
@@ -178,6 +177,12 @@ COLORS = {
     'cyan': '\033[96m',
     'reset': '\033[0m'
 }
+def colorize(text, color_name, use_color):
+    if use_color and color_name in COLORS:
+        return f"{COLORS[color_name]}{text}{COLORS['reset']}"
+    return text
+
+
 def is_likely_reflected(payload: str, response_text: str) -> bool:
     """Simple heuristic: the payload is in the response and there is no explicit HTML escaping"""
     if not payload:
@@ -221,68 +226,88 @@ def load_payloads_from_file(filepath: str) -> list:
         sys.exit(1)
  
 
-def sniper(url_template: str, payloads: list, use_color: bool = False, delay: float = 0.6):
-    def colorize(text, color_name):
-        if use_color and color_name in COLORS:
-            return f"{COLORS[color_name]}{text}{COLORS['reset']}"
-        return text
-    
+async def process_payload(semaphore, print_lock, client, url_template, payload, idx, total, use_color, delay):
+    async with semaphore:
+        encoded = quote(payload, safe="=&/")
+        test_url = url_template.replace("FUZZ", encoded) if "FUZZ" in url_template else url_template + encoded
+
+        try:
+            r = await client.get(test_url, follow_redirects=True)
+            await asyncio.sleep(delay)
+
+            
+            async with print_lock:
+                
+                print(f"[{idx:02d}/{total}] → {payload[:1000]}{'...' if len(payload)>1000 else ''}", end=" ")
+
+                if is_likely_reflected(payload, r.text):
+                    print(colorize("  → ✅ [XSS!] ", "green", use_color))
+                    print(f"      URL: {test_url}")
+                    print(f"      Code: {colorize(str(r.status_code), 'green', use_color)} | Length: {len(r.text):,} bytes")
+                    print(f"      Payload: {payload}\n")
+                    return {
+                        'idx': idx,
+                        'payload': payload,
+                        'url': test_url,
+                        'code': r.status_code,
+                        'length': len(r.text)
+                    }
+                elif r.status_code in INTERESTING_CODES:
+                    print(colorize(f"🛡️ {r.status_code} (interesting)", "magenta", use_color))
+                    print()  
+                else:
+                    print(colorize(f"  → ❌ {r.status_code}", "red", use_color))
+                    print()
+
+        except httpx.TimeoutException:
+            async with print_lock:
+                print(f"[{idx:02d}/{total}] → {payload[:55]}{'...' if len(payload)>55 else ''} ", end="")
+                print(colorize("  → ⏰ Timeout", "blue", use_color))
+        except httpx.ConnectError:
+            async with print_lock:
+                print(f"[{idx:02d}/{total}] → {payload[:55]}{'...' if len(payload)>55 else ''} ", end="")
+                print(colorize("  → 🔌 Connection error", "cyan", use_color))
+        except httpx.HTTPError as e:
+            async with print_lock:
+                print(f"[{idx:02d}/{total}] → {payload[:55]}{'...' if len(payload)>55 else ''} ", end="")
+                print(colorize(f"  → ⚠️ Error: {str(e)[:60]}", "yellow", use_color))
+
+        return None
+
+
+async def sniper(url_template: str, payloads: list, use_color: bool = False, delay: float = 0.6, concurrency: int = 5):
    
     print(BANNER)
     print(f"[+] Target: {url_template}")
     print(f"[+] Payloads in database: {len(payloads)}\n")
-    
-    found = 0       # counter for potential XSS findings
-    successful = [] # list to store successful payloads for later review
+    print(f"[+] Concurrency: {concurrency} requests at a time")
+    semaphore = asyncio.Semaphore(concurrency)
+    print_lock = asyncio.Lock()
+    async with httpx.AsyncClient(headers=HEADERS, timeout=TIMEOUT) as client:
+        tasks = []
+        for idx, payload in enumerate(payloads, 1):
+            task = asyncio.create_task(
+                process_payload(semaphore, print_lock, client, url_template, payload, idx, len(payloads), use_color, delay)
+            )
+            tasks.append(task)
 
-    for idx, payload in enumerate(payloads, 1):
-        encoded = quote(payload, safe="=&/")
-        test_url = url_template.replace("FUZZ", encoded) if "FUZZ" in url_template else url_template + encoded
-        
-        print(f"[{idx:02d}/{len(payloads)}] → {payload[:55]}{'...' if len(payload)>55 else ''}", end=" ", flush=True)
+        results = await asyncio.gather(*tasks)
 
+    successful = [r for r in results if r is not None]
+    found = len(successful)
+    successful.sort(key=lambda x: x['idx'])
 
-        try:
-            r = requests.get(test_url, headers=HEADERS, timeout=TIMEOUT, allow_redirects=True)
-            
-            if is_likely_reflected(payload, r.text):
-                print(colorize("  → ✅ [XSS!] ", "green"))                    # potential XSS found (payload reflected without obvious escaping)
-                print(f"      URL: {test_url}")
-                print(f"      Code: {colorize(str(r.status_code), 'green')} | Length: {len(r.text):,} bytes")
-                print(f"      Payload: {payload}\n")
-                found += 1
-                successful.append({
-                    'idx': idx,
-                    'payload': payload,
-                    'url': test_url,
-                    'code': r.status_code,
-                    'length': len(r.text)
-                })
-            elif r.status_code in INTERESTING_CODES:
-                print(colorize(f"🛡️ {r.status_code} (interesting)", "magenta"))
-            else:
-                print(colorize(f"  → ❌ {r.status_code}", "red"))           # not found or not reflected
-                
-        except requests.exceptions.Timeout:
-            print(colorize("  → ⏰ Timeout", "blue"))                            # timeout 
-        except requests.exceptions.ConnectionError:
-            print(colorize("  → 🔌 Connection error", "cyan"))                   # connection error
-        except requests.exceptions.RequestException as e:
-            print(colorize(f"  → ⚠️ Error: {str(e)[:60]}", "yellow"))       # other request exceptions (truncated for readability)
-        
-        time.sleep(delay) # delay between requests
-    
     print("\n" + "═" * 60)
     if found > 0:
-        print(colorize(f"[!] Found potential XSS: {found}", "green"))
+        print(colorize(f"[!] Found potential XSS: {found}", "green", use_color))
         print("\n📋 LIST OF SUCCESSFUL PAYLOADS:")
         for item in successful:
             print(f"  [{item['idx']:02d}] {item['payload'][:70]}")
             print(f"      URL: {item['url']}")
-            print(f"      Code: {colorize(str(item['code']), 'yellow')} | Length: {item['length']:,} bytes\n")
+            print(f"      Code: {colorize(str(item['code']), 'yellow', use_color)} | Length: {item['length']:,} bytes\n")
         print("    Check MANUALLY in browser (many WAF/filters may block some payloads)")
     else:
-        print(colorize("[-] Nothing suspicious detected with current payload set", "red"))
+        print(colorize("[-] Nothing suspicious detected with current payload set", "red", use_color))
     print("═" * 60)
 
 
@@ -304,6 +329,8 @@ def main():
                         help="Enable colored output (ANSI colors)")
     parser.add_argument("-d", "--delay", type=float, default=0.6,
                         help="Delay between requests in seconds (default: 0.6)")
+    parser.add_argument("--concurrency", type=int, default=5,
+                    help="Number of concurrent requests (default: 5)")
     
     args = parser.parse_args()
     
@@ -319,12 +346,16 @@ def main():
     source_desc = "built-in payloads"
     use_color = args.color
     custom_delay = args.delay
+    concurrency = args.concurrency
 
     if args.delay <= 0:
         print("[!] Delay must be positive. Using default 0.6.")
         custom_delay = 0.6
-    else:
-        custom_delay = args.delay
+    
+
+    if concurrency < 1:
+        print("[!] Concurrency must be at least 1. Using default 5.")
+        concurrency = 5
 
     if args.payloads_file:
         file_payloads = load_payloads_from_file(args.payloads_file)
@@ -339,7 +370,7 @@ def main():
 
 
     try:
-        sniper(url, payloads_to_use, use_color, custom_delay)
+        asyncio.run(sniper(url, payloads_to_use, use_color, custom_delay, concurrency))
     except KeyboardInterrupt:
         print("\n[!] Scan interrupted by user")
         sys.exit(0)
