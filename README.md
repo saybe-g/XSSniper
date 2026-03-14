@@ -54,7 +54,7 @@ python xssniper.py -u "https://example.com/search?q=FUZZ
 ```
 Example
 ```
-python xssniper.py -u "https://example.com/search?q=FUZZ -f 'payload.txt' --append --color
+python xssniper.py -u "https://example.com/search?q=FUZZ -f 'payload.txt' -d 0.2 --append --color --concurrency 10
 ```
 ### IMPORTANT LEGAL NOTICE
 XSSNIPER is intended strictly for ethical and legal use only:
