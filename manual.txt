@@ -8,6 +8,8 @@ options:
   --append              Append payloads from file to built-in list (default: replace)
   --color               Enable colored output (ANSI colors)
   -d, --delay DELAY     Delay between requests in seconds (default: 0.6)
+  --concurrency CONCURRENCY
+                        Number of concurrent requests (default: 5)
 
   Don't use this flag if you're outputting the contents to a file. The output may look bad.
   
