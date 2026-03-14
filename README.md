@@ -13,8 +13,15 @@ A simple and lightweight **reflected XSS scanner** (currently GET parameters onl
 - Automatic URL-encoding of payloads
 - Basic heuristic to detect unescaped reflection (no HTML entity encoding)
 - Browser impersonation via realistic Chrome User-Agent
+- 🌐 Better Error Handling
 - Clean and colored terminal output
+- 📋 Final Summary List
 - Support for `FUZZ` keyword in URL to specify exact injection point
+- ⏱️ Customizable Delay
+- ⚡ Asynchronous Architecture
+       Switched from synchronous requests to asynchronous httpx with asyncio.
+       Allows concurrent requests, dramatically speeding up scans on targets with many payloads.
+       Added --concurrency flag to control the number of parallel requests (default: 5).
 
 
 ### Reactions
