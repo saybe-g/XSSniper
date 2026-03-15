@@ -1,15 +1,68 @@
-XSSNIPER — fast reflected XSS tester
+XSSNIPER — Professional XSS Scanner
+
+install:
+git clone https://saybe-g/XSSniper.git
+sudo apt update
+sudo apt install python3-venv
+cd XSSniper
+python3 -m venv xssenv
+source xssenv/bin/activate
+pip install -r requirements.txt
+playwright install chromium   
+python xssniper.py --help
+--------------------------
+launch after installation:
+cd XSSniper
+source xssenv/bin/activate
+python xssniper.py -h
+
 
 options:
   -h, --help            show this help message and exit
-  -u, --url URL         URL with injection point. Use FUZZ or just append at the end
+  -u, --url URL         Target URL (with FUZZ for GET or base URL for
+                        crawling)
+  --method {GET,POST}   HTTP method to use (default: GET)
+  --data DATA           POST data. Can be query string (key=value) or JSON
+                        string
+  --json                Send POST data as JSON (requires valid JSON in --data)
+  --crawl               Enable intelligent crawling to discover targets
+  --max-depth MAX_DEPTH
+                        Maximum crawl depth (default: 2)
+  --max-urls MAX_URLS   Maximum URLs to crawl (default: 150)
+  --cookies COOKIES     Cookies for authenticated crawling (format:
+                        'name=value; name2=value2')
+  --osint               Enable OSINT mode: collect emails, phones, comments,
+                        hidden fields, etc.
   -f, --payloads-file PAYLOADS_FILE
                         File with custom payloads (one per line)
-  --append              Append payloads from file to built-in list (default: replace)
+  --append              Append payloads from file to built-in list (default:
+                        replace)
   --color               Enable colored output (ANSI colors)
   -d, --delay DELAY     Delay between requests in seconds (default: 0.6)
   --concurrency CONCURRENCY
-                        Number of concurrent requests (default: 5)
+                        Number of concurrent requests (default: 20)
+  --verify-headless     Use headless browser for verification (slow but
+                        accurate)
+  --blind-xss-port BLIND_XSS_PORT
+                        Port for Blind XSS callback server (default: 8080)
+  --blind-xss-domain BLIND_XSS_DOMAIN
+                        Your domain for Blind XSS callbacks (e.g.,
+                        attacker.com)
+  --ml-model ML_MODEL   Path to trained ML model file
+  --confidence-threshold CONFIDENCE_THRESHOLD
+                        Confidence threshold for reporting (0.0-1.0, default:
+                        0.7)
+  --full                Enable full scan: crawling, OSINT, and color output
+  --full-an             Enable full analysis: ML model (default path) and
+                        headless verification
 
-  Don't use this flag if you're outputting the contents to a file. The output may look bad.
-  
+Examples: Basic GET scan: python3 xssniper.py -u
+'http://site.com/search?q=FUZZ' --color POST scan: python3 xssniper.py -u
+'http://site.com/login' --method POST --data 'user=FUZZ&pass=123' --color JSON
+API scan: python3 xssniper.py -u 'http://site.com/api' --method POST --data
+'{"name":"FUZZ"}' --json --color Crawl + scan: python3 xssniper.py -u
+'http://site.com/' --crawl --max-depth 3 --max-urls 100 --color Full power:
+python3 xssniper.py -u 'http://site.com/' --crawl --max-depth 3 --concurrency
+10 --color --cookies "PHPSESSID=abc123"
+
+ml model may not be stable!
