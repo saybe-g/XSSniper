@@ -9,12 +9,12 @@ python3 -m venv xssenv
 source xssenv/bin/activate
 pip install -r requirements.txt
 playwright install chromium   
-python xssniper.py --help
+python3 xssniper.py --help
 --------------------------
 launch after installation:
 cd XSSniper
 source xssenv/bin/activate
-python xssniper.py -h
+python3 xssniper.py -h
 
 
 options:
