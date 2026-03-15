@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-XSsniper - Reflected XSS Scanner
+XSsniper - Professional XSS Scanner
 Version: 0.4 
 Legal use only
 """
@@ -312,7 +312,7 @@ HEADERS = {"User-Agent": USER_AGENT}
 BANNER = f"""
 ╔════════════════════════════════════════════╗
 ║             XSSNIPER v0.4                  ║
-║          reflected XSS scanner             ║
+║         Professional XSS scanner           ║
 ║   {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}                      ║
 ╚════════════════════════════════════════════╝
 """
