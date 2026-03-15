@@ -333,7 +333,7 @@ COLORS = {
 
 # Professional verification settings
 analyzer = XSSContextAnalyzer()
-ml_classifier = XSSMLClassifier()
+ml_classifier = None  
 headless_verifier = None
 blind_xss_server = None
 
@@ -411,11 +411,12 @@ async def verify_xss_professional(test_url: str, payload: str, response_text: st
     result['confidence'] = analysis['confidence']
     
     # Level 2: ML classification (if available)
+   
     if ml_classifier and ml_classifier.is_trained:
-        ml_result = ml_classifier.predict(payload, response_text)
+        ml_result = ml_classifier.predict(payload)   
         result['ml_prediction'] = ml_result
-        # combine confidence 
         result['confidence'] = (result['confidence'] + ml_result['confidence']) / 2
+        result['evidence'].append(f"🤖 ML confidence: {ml_result['confidence']:.1%}")
     
     # Level 3: Headless verification (if enabled)
     if headless_verifier and analysis['confidence'] > 0.5:
@@ -581,6 +582,9 @@ async def sniper(targets: list, payloads: list, use_color: bool = False,
     target_count = 0
     
     async with httpx.AsyncClient(headers=HEADERS, timeout=TIMEOUT) as client:
+        if headless_verifier:
+            await headless_verifier.initialize()
+            print("   [✓] Headless verifier initialized")
         for target in targets:
             target_count += 1
             target_desc = f"{target['method']} {target['url']}"
@@ -636,7 +640,9 @@ async def sniper(targets: list, payloads: list, use_color: bool = False,
 
     else:
         print(colorize("[-] Nothing suspicious detected with current payload set", "red", use_color))
-
+        
+    if headless_verifier:
+        await headless_verifier.close()
 
 def main():
     parser = argparse.ArgumentParser(
@@ -723,7 +729,8 @@ def main():
     if args.verify_headless:
         print("[🌐] Initializing headless browser verifier...")
         headless_verifier = HeadlessXSSVerifier(headless=True)
-        asyncio.create_task(headless_verifier.initialize())
+    else:
+        headless_verifier = None
 
     if args.blind_xss_domain:
         print(f"[📡] Starting Blind XSS server on port {args.blind_xss_port}...")
@@ -736,11 +743,20 @@ def main():
         for name, payload in blind_payloads.items():
             print(f"      {name}: {payload[:50]}...")
 
-    if args.ml_model and os.path.exists(args.ml_model):
-        print(f"[🤖] Loading ML model from {args.ml_model}...")
-        ml_classifier.load_model(args.ml_model)
-    elif args.ml_model:
-        print(f"[⚠️] ML model file not found: {args.ml_model}")
+    
+    if args.ml_model or args.full_an:
+        model_path = args.ml_model if args.ml_model else "ml/model.pkl"    
+        if os.path.exists(model_path):
+            try:
+                from ml.classifier import XSSMLClassifier   
+                ml_classifier = XSSMLClassifier()
+                ml_classifier.load_model(model_path)
+                print(f"[🤖] ML model loaded from {model_path}")
+            except Exception as e:
+                print(f"[⚠️] Failed to load ML model: {e}")
+                ml_classifier = None
+        else:
+            print(f"[⚠️] ML model file not found: {model_path}")
     
    
     if args.method == "POST" and not args.data:
@@ -847,12 +863,6 @@ def main():
     except KeyboardInterrupt:
         print("\n[!] Scan interrupted by user")
         sys.exit(0)
-    finally:
-        # Cleanup professional components
-        if headless_verifier:
-            asyncio.create_task(headless_verifier.close())
-        if blind_xss_server:
-            blind_xss_server.stop()
 
 if __name__ == "__main__":
     main()
