@@ -2,6 +2,8 @@
 Professional XSS scanner for ethical testing and bug bounty hunting
 ------------------------------------------------------------------------------
 
+-----------------The next major update will be in about a week.
+
 ### 🔥 Features
 - Testing with ~300+ effective XSS payloads (including modern vectors from 2024–2025)
 - Load your own custom payloads from a `.txt` file
